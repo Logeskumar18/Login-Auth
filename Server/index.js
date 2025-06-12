@@ -8,7 +8,7 @@ import authRouter from './routes/authRoutes.js'
 const app = express();
 const port = process.env.PORT ||  4000;
 
-connectDB()
+// connectDB()
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

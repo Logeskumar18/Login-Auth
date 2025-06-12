@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import userModel from '../model/userModel.js';
+import transporter from "../config/nodemailer.js";
 
 
 
@@ -30,6 +31,7 @@ export const register = async (req, res) => {
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
 
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -37,6 +39,16 @@ export const register = async (req, res) => {
 
             maxAge: 7 * 24 * 60 * 60 * 1000
         })
+
+
+        const mailOptions = {
+            from: process.env.SENDER_EMAIL,
+            to: email,
+            subject: 'Welcome to Our Website',
+            text: `Welcome to our  Website. Your Account has been created with email id: ${email}`
+        }
+
+        await transporter.sendMail(mailOptions);
 
         return res.json({ success: true });
 
@@ -46,7 +58,6 @@ export const register = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 }
-
 
 
 export const login = async (req, res) => {
@@ -106,5 +117,65 @@ export const logout = async (req, res) => {
 
     } catch (error) {
         return res.json({ success: false, message: error.message })
+    }
+}
+
+export const sendVerifyOtp = async (req, res) => {
+    try {
+
+        const { userId } = req.body;
+
+
+        const user = await userModel.findById(userId);
+
+        if (user.isAccountVerified) {
+            return res.json({ success: false, message: 'Account Already Verified' })
+        }
+
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+        user.verifyOtp = otp;
+
+        user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
+
+
+        await user.save();
+
+
+        const mailOption = {
+            from: process.env.SENDER_EMAIL,
+            to: user.email,
+            subject: 'Account Verification OTP',
+            html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+      <div style="max-width: 500px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+        <h2 style="text-align: center; color: #333333;">Verify Your Account</h2>
+        <p style="font-size: 16px; color: #555555;">
+          Thank you for registering. Use the OTP below to verify your email address:
+        </p>
+        <div style="text-align: center; margin: 20px 0;">
+          <span style="display: inline-block; background-color: #007bff; color: #ffffff; padding: 12px 24px; font-size: 24px; font-weight: bold; border-radius: 5px;">
+            ${otp}
+          </span>
+        </div>
+        <p style="font-size: 14px; color: #999999;">
+          This OTP is valid for the next 10 minutes. Do not share it with anyone.
+        </p>
+        <p style="font-size: 14px; color: #999999; margin-top: 30px;">
+          Regards,<br/>
+          <strong>Your App Name Team</strong>
+        </p>
+      </div>
+    </div>
+  `
+        };
+
+
+        await transporter.sendMail(mailOption)
+
+        res.json({success:true,message:'Verification OTP Sent on Email '})
+
+    } catch (error) {
+        res.json({ success: false, message: error.message })
     }
 }
