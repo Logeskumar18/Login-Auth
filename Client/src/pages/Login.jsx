@@ -2,7 +2,10 @@ import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
 import { useNavigate } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
-import axios from 'axios'
+import axios from 'axios';
+import { toast } from 'react-toastify';
+
+
 
 const Login = () => {
   const [state, setState] = useState("Sign Up");
@@ -12,44 +15,42 @@ const Login = () => {
 
   const navigate = useNavigate();
 
-  const { backendURL, setIsLoggedIn } = useContext(AppContext)
+  const { backendURL, setIsLoggedIn , getUserData} = useContext(AppContext)
 
 
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  axios.defaults.withCredentials = true;
 
-  const handleSubmit = async (e) => {
+  const cleanURL = backendURL.replace(/\/+$/, '');
 
-    try {
+  try {
+    const endpoint = state === 'Sign Up' ? '/api/auth/register' : '/api/auth/login';
+    const payload = state === 'Sign Up' ? { name, email, password } : { email, password };
 
-      e.preventDefault();
-      axios.defaults.withCredentials = true;
+    const { data } = await axios.post(`${cleanURL}${endpoint}`, payload);
 
-      if (state === 'Sign Up') {
-
-        const { data } = await axios.post(backendURL + 'api/auth/register', { name, email, password })
-
-        if(data.success){
-          setIsLoggedIn(true);
-          navigate('/')
-        }
-        else{
-          alert(data.message)
-        }
-      }
-      else {
-
-      }
-
-    } catch (error) {
-
+    if (data.success) {
+      toast.success(state === 'Sign Up' ? 'Account created!' : 'Login successful!');
+      setIsLoggedIn(true);
+      getUserData()
+      navigate('/');  
+    } else {
+      toast.error(data.message);
+      getUserData()
     }
 
+  } catch (error) {
+    console.error(error);
+    toast.error(error.response?.data?.message || 'Something went wrong. Please try again.');
+  }
+
+  setName("");
+  setEmail("");
+  setPassword("");
+};
 
 
-    // Clear form (optional)
-    setName("");
-    setEmail("");
-    setPassword("");
-  };
 
   return (
     <div className="min-h-screen bg-gray-100 relative px-4 py-6">
